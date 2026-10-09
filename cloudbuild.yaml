@@ -1,5 +1,6 @@
 # Cloud Build pipeline for NoteCast WebApi.
-# Triggered on push to main; builds the Docker image and pushes it to Artifact Registry.
+# Triggered on push to main: builds the Docker image, pushes it to Artifact Registry
+# and rolls it out to the GKE deployment.
 #
 # Substitutions available by default from a GitHub trigger:
 #   $SHORT_SHA  - first 7 chars of the commit SHA
@@ -9,6 +10,10 @@ substitutions:
   _REGION: us-central1
   _REPO: pt-notecast
   _IMAGE: notecast-webapi
+  _CLUSTER: pt-notecast
+  # Names as they exist in the cluster (created from the Cloud Console wizard).
+  _DEPLOYMENT: pt-notecast-deployment
+  _CONTAINER: notecast-webapi-sha256-1
 
 steps:
   - id: build
@@ -21,8 +26,35 @@ steps:
       - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:latest
       - .
 
-# Images listed here are pushed to the registry after all steps succeed
-# and show up in the build results.
+  # Push explicitly here: the `images:` section pushes only after ALL steps finish,
+  # but the deploy step below needs the image to already be in the registry.
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}
+
+  # Rolling update: pin the deployment to the immutable SHA tag (never :latest,
+  # otherwise Kubernetes would not notice a new image) and wait until the
+  # rollout is complete so a failed startup fails the build.
+  - id: deploy
+    name: gcr.io/cloud-builders/kubectl
+    env:
+      - CLOUDSDK_CORE_PROJECT=${PROJECT_ID}
+      - CLOUDSDK_COMPUTE_REGION=${_REGION}
+      - CLOUDSDK_CONTAINER_CLUSTER=${_CLUSTER}
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        kubectl set image deployment/${_DEPLOYMENT} \
+          ${_CONTAINER}=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:${SHORT_SHA}
+        kubectl annotate deployment/${_DEPLOYMENT} --overwrite \
+          kubernetes.io/change-cause="cloudbuild ${BUILD_ID} commit ${SHORT_SHA}"
+        kubectl rollout status deployment/${_DEPLOYMENT} --timeout=5m
+
+# Listed for build provenance / results page (already pushed in the `push` step).
 images:
   - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:${SHORT_SHA}
   - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:latest
