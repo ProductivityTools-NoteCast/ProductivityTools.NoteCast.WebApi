@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: notecast-webapi
-          image: us-central1-docker.pkg.dev/pwujczyk-pt/notecast/notecast-webapi:latest
+          image: us-central1-docker.pkg.dev/pwujczyk-pt/pt-notecast/notecast-webapi:latest
           ports:
             - containerPort: 8080
 ---
