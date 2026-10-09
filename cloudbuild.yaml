@@ -48,6 +48,8 @@ steps:
     args:
       - -ceu
       - |
+        # Custom entrypoint skips the builder's wrapper, so fetch kubeconfig ourselves.
+        gcloud container clusters get-credentials ${_CLUSTER} --region ${_REGION} --project ${PROJECT_ID}
         kubectl set image deployment/${_DEPLOYMENT} \
           ${_CONTAINER}=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:${SHORT_SHA}
         kubectl annotate deployment/${_DEPLOYMENT} --overwrite \
