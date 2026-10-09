@@ -1,0 +1,33 @@
+# Cloud Build pipeline for NoteCast WebApi.
+# Triggered on push to main; builds the Docker image and pushes it to Artifact Registry.
+#
+# Substitutions available by default from a GitHub trigger:
+#   $SHORT_SHA  - first 7 chars of the commit SHA
+#   $PROJECT_ID - GCP project running the build
+
+substitutions:
+  _REGION: us-central1
+  _REPO: notecast
+  _IMAGE: notecast-webapi
+
+steps:
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --tag
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:${SHORT_SHA}
+      - --tag
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:latest
+      - .
+
+# Images listed here are pushed to the registry after all steps succeed
+# and show up in the build results.
+images:
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:${SHORT_SHA}
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:latest
+
+options:
+  # Required when the build runs as a user-specified service account:
+  # write logs to Cloud Logging instead of a GCS bucket.
+  logging: CLOUD_LOGGING_ONLY
