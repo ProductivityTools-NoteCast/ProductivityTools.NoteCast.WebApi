@@ -7,7 +7,7 @@
 
 substitutions:
   _REGION: us-central1
-  _REPO: notecast
+  _REPO: pt-notecast
   _IMAGE: notecast-webapi
 
 steps:
